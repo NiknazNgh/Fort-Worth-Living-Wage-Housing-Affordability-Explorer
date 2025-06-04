@@ -3,10 +3,7 @@ import geopandas as gpd
 import pandas as pd
 import pydeck as pdk
 from breakdown import living_wage_breakdown
-streamlit
-geopandas
-pandas
-pydeck
+
 
 
 
