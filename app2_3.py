@@ -1,4 +1,4 @@
-import streamlit as st 
+import streamlit as st   
 import geopandas as gpd
 import pandas as pd
 import pydeck as pdk
@@ -18,24 +18,34 @@ family_type_options = [
     "2 Adults (2 Working)", "2 Adults (2 Working) 1 Child", "2 Adults (2 Working) 2 Children", "2 Adults (2 Working) 3 Children"
 ]
 family_type = st.sidebar.selectbox("Select your family type", family_type_options)
+bedroom_options = {
+    "All Units": "median_rent_all",
+    "Studio (0 BR)": "median_rent_0br",
+    "1 Bedroom": "median_rent_1br",
+    "2 Bedrooms": "median_rent_2br",
+    "3 Bedrooms": "median_rent_3br",
+    "4 Bedrooms": "median_rent_4br",
+    "5+ Bedrooms": "median_rent_5pbr"
+}
+bedroom_label = st.sidebar.selectbox("Number of Bedrooms", list(bedroom_options.keys()))
+bedroom_col = bedroom_options[bedroom_label]
 
 # ---------- Data Loaders ----------
 @st.cache_data
 def load_housing_gdf():
-    gdf = gpd.read_file("fort_worth_grid_pieces.geojson")
-    gdf = gdf[gdf["monthly_rent"] > 0].copy()
+    gdf = gpd.read_file("fort_worth_grid_pieces_bedrooms.geojson")
     gdf = gdf.to_crs(4326)
-    gdf["tract_id"] = gdf.index.astype(str)  # tract_id as string
     return gdf
 
 @st.cache_data
 def get_city_boundary():
-    city_gdf = gpd.read_file("fort_worth_city_boundary.geojson")
+    city_gdf = gpd.read_file("fort_worth_city_boundary.geojson")  # Adjust filename if needed!
     city_gdf = city_gdf.to_crs(4326)
     return city_gdf
 
 gdf = load_housing_gdf()
 city_gdf = get_city_boundary()
+gdf = gdf[gdf[bedroom_col] > 0].copy()
 
 # ---------- Living Wage Data ----------
 breakdown_df = living_wage_breakdown(q=0.40)
@@ -49,7 +59,15 @@ if filtered is not None and not filtered.empty:
 else:
     st.warning("No matching data found for this family type.")
 
-# ---------- Geometry: Add coordinates for pydeck ----------
+# ---------- Color Coding ----------
+def to_color(rent):
+    if rent <= housing_cost:
+        return [0, 185, 0, 120]  # green, semi-transparent
+    else:
+        return [212, 0, 0, 120]  # red, semi-transparent
+
+gdf["fill_color"] = gdf[bedroom_col].apply(to_color)
+
 def extract_coords(geom):
     if geom is None:
         return []
@@ -64,7 +82,7 @@ gdf["coordinates"] = gdf["geometry"].apply(extract_coords)
 gdf["lon"] = gdf.geometry.centroid.x
 gdf["lat"] = gdf.geometry.centroid.y
 
-# ---------- City Boundary: Explode and prepare for pydeck ----------
+# ---------- City Boundary for pydeck ----------
 city_gdf_flat = city_gdf.explode(index_parts=False).reset_index(drop=True)
 
 def get_polygon_coords(geom):
@@ -83,46 +101,17 @@ for geom in city_gdf_flat.geometry:
             all_boundary_lines.append(list(ring.coords))
 city_lines_df = pd.DataFrame({"path": all_boundary_lines})
 
-# ---------- Data Table ----------
-st.subheader("🗺️ All Census Grid Cells in Fort Worth\nGreen = Below Budget, Red = Above Budget")
-
-table_df = gdf[["tract_id", "monthly_rent", "lat", "lon"]].copy()
-table_df_display = table_df.rename(columns={
-    'tract_id': 'Tract ID',
-    'monthly_rent': 'Monthly Rent ($)',
-    'lat': 'Latitude',
-    'lon': 'Longitude'
-})
-
-with st.expander("📋 View All Grid Data (clipped to city)"):
-    st.dataframe(table_df_display, use_container_width=True)
-
-# ---------- Select tract for highlight ----------
-tract_ids = table_df_display['Tract ID'].tolist()
-tract_labels = [
-    f"{tid}: Rent ${row['Monthly Rent ($)']} ({row['Latitude']:.4f}, {row['Longitude']:.4f})"
-    for tid, row in zip(tract_ids, table_df_display.to_dict(orient='records'))
-]
-tract_label_map = dict(zip(tract_labels, tract_ids))
-selected_tract_label = st.selectbox(
-    "Select a tract to highlight on the map:",
-    options=["None"] + tract_labels,
-    index=0
-)
-selected_tract_id = tract_label_map[selected_tract_label] if selected_tract_label != "None" else None
-
-# ---------- Color coding: Green/Red/Blue for map polygons ----------
-def to_color(row):
-    if selected_tract_id is not None and str(row['tract_id']) == str(selected_tract_id):
-        return [0, 0, 255, 220]  # blue, more opaque for highlight
-    elif row['monthly_rent'] <= housing_cost:
-        return [0, 185, 0, 120]  # green
-    else:
-        return [212, 0, 0, 120]  # red
-
-gdf["fill_color"] = gdf.apply(to_color, axis=1)
-
 # ---------- MAP ----------
+st.subheader(f"🗺️ All Grid Cells in Fort Worth ({bedroom_label})\nGreen = Below Budget, Red = Above Budget")
+
+tooltip = {
+    "html": (
+        f"<b>{bedroom_label} Median Rent: ${{{bedroom_col}}}</b>"
+        "<br><b> Year of Built: {median_year_built}</b>"
+    ),
+    "style": {"color": "white"}
+}
+
 tract_layer = pdk.Layer(
     "PolygonLayer",
     data=gdf,
@@ -131,39 +120,31 @@ tract_layer = pdk.Layer(
     pickable=True,
     auto_highlight=True,
     stroked=True,
-    get_line_color=[60, 60, 60, 90],
+    get_line_color=[60, 60, 60, 90],   # light gray outline for tracts
     line_width_min_pixels=1,
 )
-
 city_boundary_layer = pdk.Layer(
     "PolygonLayer",
     data=city_gdf_flat,
     get_polygon="coordinates",
-    get_fill_color=[0, 0, 0, 30],
+    get_fill_color=[0, 0, 0, 30],    # faint gray fill
     stroked=True,
-    get_line_color=[0, 0, 0, 200],
+    get_line_color=[0, 0, 0, 200],   # dark outline for fill
     line_width_min_pixels=1,
 )
-
 city_outline_layer = pdk.Layer(
     "LineLayer",
     data=city_lines_df,
     get_path="path",
     get_color=[0, 0, 0, 255],
-    get_width=6,
+    get_width=6,  # bold black
 )
-
 initial_view = pdk.ViewState(
     longitude=gdf["lon"].mean(),
     latitude=gdf["lat"].mean(),
     zoom=10,
     pitch=0,
 )
-
-tooltip = {
-    "html": "<b>Monthly Rent: ${monthly_rent}</b>",
-    "style": {"color": "white"}
-}
 
 st.pydeck_chart(
     pdk.Deck(
@@ -179,17 +160,28 @@ st.markdown(
     """
     <div style="display: flex; align-items: center;">
         <div style="background: linear-gradient(to right, #00b900, #d40000); width: 160px; height: 18px; margin-right: 10px;"></div>
-        <div>Affordable (Green) &larr; &rarr; Not Affordable (Red), <span style="color: #0000FF; font-weight:bold;">Blue = Selected</span></div>
+        <div>Affordable (Green) &larr; &rarr; Not Affordable (Red)</div>
     </div>
     """, unsafe_allow_html=True
 )
 
-# ---------- Download ----------
-csv = table_df_display.to_csv(index=False).encode('utf-8')
+# ---------- Data Table & Download ----------
+with st.expander("📋 View All Grid Data (clipped to city)"):
+    display_df = gdf.copy()
+display_df = display_df.sort_values(bedroom_col, ascending=True).reset_index(drop=True)
+display_df.index += 1
+pretty_df = display_df[[bedroom_col, 'median_year_built', 'lat', 'lon']].rename(columns={
+    bedroom_col: f"{bedroom_label} Median Rent ($)",
+    'median_year_built': "Median Year Built",
+    'lat': 'Latitude',
+    'lon': 'Longitude'
+})
+st.dataframe(pretty_df, use_container_width=True)
+csv = pretty_df.to_csv(index=False).encode('utf-8')
 st.download_button(
-    label="Download All Grids as CSV (Sorted by Rent)",
+    label=f"Download All Grids as CSV ({bedroom_label}, Sorted by Rent)",
     data=csv,
-    file_name='all_grid_cells_fort_worth_sorted.csv',
+    file_name=f'fort_worth_grid_{bedroom_col}_yearbuilt.csv',
     mime='text/csv',
 )
 

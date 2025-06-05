@@ -1,4 +1,4 @@
-import streamlit as st   
+import streamlit as st  
 import geopandas as gpd
 import pandas as pd
 import pydeck as pdk
@@ -24,13 +24,13 @@ bedroom_options = {
     "1 Bedroom": "median_rent_1br",
     "2 Bedrooms": "median_rent_2br",
     "3 Bedrooms": "median_rent_3br",
-    "4 Bedrooms": "median_rent_4br",
-    "5+ Bedrooms": "median_rent_5pbr"
+    "4+ Bedrooms": "median_rent_4br"
 }
 bedroom_label = st.sidebar.selectbox("Number of Bedrooms", list(bedroom_options.keys()))
 bedroom_col = bedroom_options[bedroom_label]
 
 # ---------- Data Loaders ----------
+
 @st.cache_data
 def load_housing_gdf():
     gdf = gpd.read_file("fort_worth_grid_pieces_bedrooms.geojson")
@@ -44,8 +44,9 @@ def get_city_boundary():
     return city_gdf
 
 gdf = load_housing_gdf()
+gdf = gdf[gdf[bedroom_col] > 0].copy()  # <-- This line filters for rents above 0
 city_gdf = get_city_boundary()
-gdf = gdf[gdf[bedroom_col] > 0].copy()
+
 
 # ---------- Living Wage Data ----------
 breakdown_df = living_wage_breakdown(q=0.40)
@@ -103,15 +104,6 @@ city_lines_df = pd.DataFrame({"path": all_boundary_lines})
 
 # ---------- MAP ----------
 st.subheader(f"🗺️ All Grid Cells in Fort Worth ({bedroom_label})\nGreen = Below Budget, Red = Above Budget")
-
-tooltip = {
-    "html": (
-        f"<b>{bedroom_label} Median Rent: ${{{bedroom_col}}}</b>"
-        "<br><b> Year of Built: {median_year_built}</b>"
-    ),
-    "style": {"color": "white"}
-}
-
 tract_layer = pdk.Layer(
     "PolygonLayer",
     data=gdf,
@@ -145,7 +137,10 @@ initial_view = pdk.ViewState(
     zoom=10,
     pitch=0,
 )
-
+tooltip = {
+    "html": f"<b>{bedroom_label} Median Rent: ${{{bedroom_col}}}</b>",
+    "style": {"color": "white"}
+}
 st.pydeck_chart(
     pdk.Deck(
         layers=[tract_layer, city_boundary_layer, city_outline_layer],
@@ -170,9 +165,8 @@ with st.expander("📋 View All Grid Data (clipped to city)"):
     display_df = gdf.copy()
 display_df = display_df.sort_values(bedroom_col, ascending=True).reset_index(drop=True)
 display_df.index += 1
-pretty_df = display_df[[bedroom_col, 'median_year_built', 'lat', 'lon']].rename(columns={
+pretty_df = display_df[[bedroom_col, 'lat', 'lon']].rename(columns={
     bedroom_col: f"{bedroom_label} Median Rent ($)",
-    'median_year_built': "Median Year Built",
     'lat': 'Latitude',
     'lon': 'Longitude'
 })
@@ -181,7 +175,7 @@ csv = pretty_df.to_csv(index=False).encode('utf-8')
 st.download_button(
     label=f"Download All Grids as CSV ({bedroom_label}, Sorted by Rent)",
     data=csv,
-    file_name=f'fort_worth_grid_{bedroom_col}_yearbuilt.csv',
+    file_name=f'fort_worth_grid_{bedroom_col}.csv',
     mime='text/csv',
 )
 
