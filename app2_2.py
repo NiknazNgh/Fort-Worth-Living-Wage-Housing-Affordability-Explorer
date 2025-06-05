@@ -39,7 +39,7 @@ def load_housing_gdf():
 
 @st.cache_data
 def get_city_boundary():
-    city_gdf = gpd.read_file("fort_worth_boundary.geojson")  # Adjust filename if needed!
+    city_gdf = gpd.read_file("fort_worth_city_boundary.geojson")  # Adjust filename if needed!
     city_gdf = city_gdf.to_crs(4326)
     return city_gdf
 
