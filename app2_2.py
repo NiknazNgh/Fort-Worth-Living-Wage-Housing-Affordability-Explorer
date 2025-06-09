@@ -2,7 +2,8 @@ import streamlit as st
 import geopandas as gpd
 import pandas as pd
 import pydeck as pdk
-from breakdown import living_wage_breakdown
+from living_wage import living_wage_table  # Ensure this module contains the living_wage_table variable or function
+from breakdown import living_wage_breakdown  # Ensure this module contains the living_wage_breakdown function
 
 st.set_page_config(page_title="Fort Worth Living Wage Explorer", layout="wide")
 st.title("🏠 Fort Worth Living Wage Housing Affordability Explorer")
@@ -10,7 +11,7 @@ st.title("🏠 Fort Worth Living Wage Housing Affordability Explorer")
 # ---------- Sidebar Inputs ----------
 st.sidebar.header("User Inputs")
 housing_cost = st.sidebar.slider(
-    "Select your monthly housing budget ($)", min_value=500, max_value=3000, value=1600, step=50
+    "Select your monthly housing budget ($)", min_value=800, max_value=4000, value=1600, step=50
 )
 family_type_options = [
     "1 Adult", "1 Adult 1 Child", "1 Adult 2 Children", "1 Adult 3 Children",
@@ -106,8 +107,8 @@ st.subheader(f"🗺️ All Grid Cells in Fort Worth ({bedroom_label})\nGreen = B
 
 tooltip = {
     "html": (
-        f"<b>{bedroom_label} Median Rent: ${{{bedroom_col}}}</b>"
-        "<br><b> Year of Built: {median_year_built}</b>"
+        f"<b>{bedroom_label}  Rent: ${{{bedroom_col}}}</b>"
+    
     ),
     "style": {"color": "white"}
 }
@@ -166,24 +167,11 @@ st.markdown(
 )
 
 # ---------- Data Table & Download ----------
-with st.expander("📋 View All Grid Data (clipped to city)"):
-    display_df = gdf.copy()
-display_df = display_df.sort_values(bedroom_col, ascending=True).reset_index(drop=True)
-display_df.index += 1
-pretty_df = display_df[[bedroom_col, 'median_year_built', 'lat', 'lon']].rename(columns={
-    bedroom_col: f"{bedroom_label} Median Rent ($)",
-    'median_year_built': "Median Year Built",
-    'lat': 'Latitude',
-    'lon': 'Longitude'
-})
-st.dataframe(pretty_df, use_container_width=True)
-csv = pretty_df.to_csv(index=False).encode('utf-8')
-st.download_button(
-    label=f"Download All Grids as CSV ({bedroom_label}, Sorted by Rent)",
-    data=csv,
-    file_name=f'fort_worth_grid_{bedroom_col}_yearbuilt.csv',
-    mime='text/csv',
-)
+st.subheader("📊 Living Wage Table")
+st.dataframe(living_wage_table())
+
+st.subheader("📉 Living Wage Breakdown")
+st.dataframe(living_wage_breakdown(q=0.40))
 
 # ---------- Footer ----------
 st.markdown(
