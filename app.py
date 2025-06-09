@@ -11,7 +11,7 @@ st.title("🏠 Fort Worth Living Wage Housing Affordability Explorer")
 # ---------- Sidebar Inputs ----------
 st.sidebar.header("User Inputs")
 housing_cost = st.sidebar.slider(
-    "Select your monthly housing budget ($)", min_value=800, max_value=4000, value=1600, step=50
+    "Select your monthly housing budget ($)", min_value=800, max_value=4000, value=1450, step=50
 )
 family_type_options = [
     "1 Adult", "1 Adult 1 Child", "1 Adult 2 Children", "1 Adult 3 Children",
