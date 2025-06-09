@@ -168,7 +168,7 @@ st.markdown(
 
 # ---------- Data Table & Download ----------
 st.subheader("📊 Living Wage Table")
-st.dataframe(living_wage_table())
+st.dataframe(living_wage_table(q=0.40))
 
 st.subheader("📉 Living Wage Breakdown")
 st.dataframe(living_wage_breakdown(q=0.40))
