@@ -46,7 +46,7 @@ taxes_input = st.sidebar.number_input("Taxes ($/mo)", min_value=0, max_value=300
 total_living_wage_custom = (
     housing_input + food_input + childcare_input +
     transport_input + health_input + other_input +
-    taxes_input
+    civic_input + internet_input + taxes_input
 )
 
 
@@ -200,6 +200,7 @@ st.success(f"**Custom Required Living Wage:** **${total_living_wage_custom:,.0f}
 # ---------- User-Driven Cost Inputs & Data Table ----------
 
 custom_breakdown = pd.DataFrame([{
+    "housing": housing_input,
     "transport": transport_input,
     "food": food_input,
     "health": health_input,
