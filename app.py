@@ -213,26 +213,16 @@ custom_breakdown = pd.DataFrame([{
 
 st.markdown("#### Living Wage Breakdown (Custom Inputs)")
 st.dataframe(custom_breakdown)
-st.markdown("#### Living Wage Breakdown (Reference Data)")
-if filtered is not None and not filtered.empty:
-    st.dataframe(filtered)
-else:
-    st.info("No reference data available for this family type.")
-
-
-# ---------- Show Reference Living Wage Table ----------
 
 percentile = st.sidebar.slider(
     "Select Living Wage Percentile (Reference Table)", 
     min_value=0.1, max_value=0.9, value=0.40, step=0.01, format="%.2f"
 )
-
+# Now use this percentile everywhere instead of hardcoded 0.40
+breakdown_df = living_wage_breakdown(q=percentile)
 ref_table = living_wage_table(q=percentile)
-if family_type in ref_table.index:
-    st.markdown(f"#### Living Wage Table (Selected Family Type)")
-    st.dataframe(ref_table.loc[[family_type]])
-else:
-    st.info("No reference data available for this family type in the table.")
+
+
 # ---------- Footer ----------
 st.markdown(
     """
