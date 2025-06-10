@@ -3,7 +3,7 @@ import geopandas as gpd
 import pandas as pd
 import pydeck as pdk
 from living_wage import living_wage_table  # your living wage table function or variable
-from breakdown import living_wage_breakdown  # your living wage breakdown function
+from breakdown import living_wage_breakdown  # your living wage breakdown functionn
 
 st.set_page_config(page_title="Fort Worth Living Wage Explorer", layout="wide")
 st.title("🏠 Fort Worth Living Wage Housing Affordability Explorer")
