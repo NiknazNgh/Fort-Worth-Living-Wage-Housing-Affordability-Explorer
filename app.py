@@ -2,17 +2,15 @@ import streamlit as st
 import geopandas as gpd
 import pandas as pd
 import pydeck as pdk
-from living_wage import living_wage_table  # Ensure this module contains the living_wage_table variable or function
-from breakdown import living_wage_breakdown  # Ensure this module contains the living_wage_breakdown function
+from living_wage import living_wage_table  # your living wage table function or variable
+from breakdown import living_wage_breakdown  # your living wage breakdown function
 
 st.set_page_config(page_title="Fort Worth Living Wage Explorer", layout="wide")
 st.title("🏠 Fort Worth Living Wage Housing Affordability Explorer")
 
 # ---------- Sidebar Inputs ----------
 st.sidebar.header("User Inputs")
-housing_cost = st.sidebar.slider(
-    "Select your monthly housing budget ($)", min_value=800, max_value=4000, value=1450, step=50
-)
+
 family_type_options = [
     "1 Adult", "1 Adult 1 Child", "1 Adult 2 Children", "1 Adult 3 Children",
     "2 Adults (1 Working)", "2 Adults (1 Working) 1 Child", "2 Adults (1 Working) 2 Children", "2 Adults (1 Working) 3 Children",
@@ -31,6 +29,27 @@ bedroom_options = {
 bedroom_label = st.sidebar.selectbox("Number of Bedrooms", list(bedroom_options.keys()))
 bedroom_col = bedroom_options[bedroom_label]
 
+
+st.sidebar.markdown("### 🛠️ Monthly Cost Inputs")
+
+housing_input = st.sidebar.number_input("Housing ($/mo)", min_value=500, max_value=5000, value=1600)
+food_input = st.sidebar.number_input("Food ($/mo)", min_value=100, max_value=2000, value=500)
+childcare_input = st.sidebar.number_input("Child Care ($/mo)", min_value=0, max_value=3000, value=800)
+transport_input = st.sidebar.number_input("Transportation ($/mo)", min_value=50, max_value=1500, value=400)
+health_input = st.sidebar.number_input("Health Care ($/mo)", min_value=50, max_value=1500, value=300)
+other_input = st.sidebar.number_input("Other Necessities ($/mo)", min_value=50, max_value=1500, value=300)
+civic_input = st.sidebar.number_input("Civic Engagement ($/mo)", min_value=0, max_value=1000, value=50)
+internet_input = st.sidebar.number_input("Internet ($/mo)", min_value=0, max_value=500, value=60)
+taxes_input = st.sidebar.number_input("Taxes ($/mo)", min_value=0, max_value=3000, value=600)
+
+# Calculate total living wage based on custom inputs
+total_living_wage_custom = (
+    housing_input + food_input + childcare_input +
+    transport_input + health_input + other_input +
+    taxes_input
+)
+
+
 # ---------- Data Loaders ----------
 @st.cache_data
 def load_housing_gdf():
@@ -40,7 +59,7 @@ def load_housing_gdf():
 
 @st.cache_data
 def get_city_boundary():
-    city_gdf = gpd.read_file("fort_worth_city_boundary.geojson")  # Adjust filename if needed!
+    city_gdf = gpd.read_file("fort_worth_city_boundary.geojson")  
     city_gdf = city_gdf.to_crs(4326)
     return city_gdf
 
@@ -49,23 +68,28 @@ city_gdf = get_city_boundary()
 gdf = gdf[gdf[bedroom_col] > 0].copy()
 
 # ---------- Living Wage Data ----------
-breakdown_df = living_wage_breakdown(q=0.40)
+
+percentile = 0.40  # fixed 40th percentile (can be changed or made dynamic)
+
+breakdown_df = living_wage_breakdown(q=percentile)
 breakdown_df.columns = [col.strip().lower().replace('#', '').strip() for col in breakdown_df.columns]
 filtered = breakdown_df.loc[[family_type]] if family_type in breakdown_df.index else None
 
-st.markdown(f"### 👨‍👩‍👧 Selected Family Type: `{family_type}`")
 if filtered is not None and not filtered.empty:
-    total_living_wage = filtered["total"].values[0]
-    st.success(f"**Required Living Wage** (with taxes, 40th percentile costs): **${total_living_wage:,.0f}/month**")
+    housing_cost_pct = filtered["housing"].values[0]
+    total_living_wage_pct = filtered["total"].values[0]
 else:
-    st.warning("No matching data found for this family type.")
+    housing_cost_pct = housing_input  # fallback
+    total_living_wage_pct = total_living_wage_custom
+    st.warning("No matching data found for this family type in dataset, using custom inputs.")
 
 # ---------- Color Coding ----------
+
 def to_color(rent):
-    if rent <= housing_cost:
-        return [0, 185, 0, 120]  # green, semi-transparent
+    if rent <= housing_input:
+        return [0, 185, 0, 120]  # Green if rent <= custom housing budget
     else:
-        return [212, 0, 0, 120]  # red, semi-transparent
+        return [212, 0, 0, 120]  # Red otherwise
 
 gdf["fill_color"] = gdf[bedroom_col].apply(to_color)
 
@@ -103,13 +127,11 @@ for geom in city_gdf_flat.geometry:
 city_lines_df = pd.DataFrame({"path": all_boundary_lines})
 
 # ---------- MAP ----------
+
 st.subheader(f"🗺️ All Grid Cells in Fort Worth ({bedroom_label})\nGreen = Below Budget, Red = Above Budget")
 
 tooltip = {
-    "html": (
-        f"<b>{bedroom_label}  Rent: ${{{bedroom_col}}}</b>"
-    
-    ),
+    "html": f"<b>{bedroom_label} Rent: ${{{bedroom_col}}}</b>",
     "style": {"color": "white"}
 }
 
@@ -121,25 +143,28 @@ tract_layer = pdk.Layer(
     pickable=True,
     auto_highlight=True,
     stroked=True,
-    get_line_color=[60, 60, 60, 90],   # light gray outline for tracts
+    get_line_color=[60, 60, 60, 90],
     line_width_min_pixels=1,
 )
+
 city_boundary_layer = pdk.Layer(
     "PolygonLayer",
     data=city_gdf_flat,
     get_polygon="coordinates",
-    get_fill_color=[0, 0, 0, 30],    # faint gray fill
+    get_fill_color=[0, 0, 0, 30],
     stroked=True,
-    get_line_color=[0, 0, 0, 200],   # dark outline for fill
+    get_line_color=[0, 0, 0, 200],
     line_width_min_pixels=1,
 )
+
 city_outline_layer = pdk.Layer(
     "LineLayer",
     data=city_lines_df,
     get_path="path",
     get_color=[0, 0, 0, 255],
-    get_width=6,  # bold black
+    get_width=6,
 )
+
 initial_view = pdk.ViewState(
     longitude=gdf["lon"].mean(),
     latitude=gdf["lat"].mean(),
@@ -166,13 +191,48 @@ st.markdown(
     """, unsafe_allow_html=True
 )
 
-# ---------- Data Table & Download ----------
-st.subheader("📊 Living Wage Table")
-st.dataframe(living_wage_table(q=0.40))
+# ---------- Display Selected Info ----------
 
-st.subheader("📉 Living Wage Breakdown")
-st.dataframe(living_wage_breakdown(q=0.40))
+st.markdown(f"### 👨‍👩‍👧 Selected Family Type: `{family_type}`")
+st.success(f"**Custom Required Living Wage:** **${total_living_wage_custom:,.0f}/month**")
 
+
+# ---------- User-Driven Cost Inputs & Data Table ----------
+
+custom_breakdown = pd.DataFrame([{
+    "transport": transport_input,
+    "food": food_input,
+    "health": health_input,
+    "civic": civic_input,
+    "other": other_input,
+    "childcare": childcare_input,
+    "internet": internet_input,
+    "tax": taxes_input,
+    "total": total_living_wage_custom
+}], index=[family_type])
+
+st.markdown("#### Living Wage Breakdown (Custom Inputs)")
+st.dataframe(custom_breakdown)
+st.markdown("#### Living Wage Breakdown (Reference Data)")
+if filtered is not None and not filtered.empty:
+    st.dataframe(filtered)
+else:
+    st.info("No reference data available for this family type.")
+
+
+# ---------- Show Reference Living Wage Table ----------
+
+percentile = st.sidebar.slider(
+    "Select Living Wage Percentile (Reference Table)", 
+    min_value=0.1, max_value=0.9, value=0.40, step=0.01, format="%.2f"
+)
+
+ref_table = living_wage_table(q=percentile)
+if family_type in ref_table.index:
+    st.markdown(f"#### Living Wage Table (Selected Family Type)")
+    st.dataframe(ref_table.loc[[family_type]])
+else:
+    st.info("No reference data available for this family type in the table.")
 # ---------- Footer ----------
 st.markdown(
     """
