@@ -238,7 +238,7 @@ st.markdown(
     """
     <div class="footer">
         Made in FwLab<br>
-        Data: <a href="https://data.census.gov/profile/Fort_Worth_city,_Texas" target="_blank">Census Data</a>
+        Data: <a href="https://data.census.gov/profile/Fort_Worth_city,_Texas?g=160XX00US4827000" target="_blank">Census Data</a>
     </div>
     """,
     unsafe_allow_html=True
