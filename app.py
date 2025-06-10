@@ -23,8 +23,7 @@ bedroom_options = {
     "1 Bedroom": "median_rent_1br",
     "2 Bedrooms": "median_rent_2br",
     "3 Bedrooms": "median_rent_3br",
-    "4 Bedrooms": "median_rent_4br",
-    "5+ Bedrooms": "median_rent_5pbr"
+    "4+ Bedrooms": "median_rent_4br"
 }
 bedroom_label = st.sidebar.selectbox("Number of Bedrooms", list(bedroom_options.keys()))
 bedroom_col = bedroom_options[bedroom_label]
