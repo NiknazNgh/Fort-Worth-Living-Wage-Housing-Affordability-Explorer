@@ -33,10 +33,10 @@ bedroom_col = bedroom_options[bedroom_label]
 st.sidebar.markdown("###  Monthly Cost Inputs")
 
 housing_input = st.sidebar.number_input("Housing ($/mo)", min_value=500, max_value=5000, value=1450)
-food_input = st.sidebar.number_input("Food ($/mo)", min_value=100, max_value=2000, value=400)
+food_input = st.sidebar.number_input("Food ($/mo)", min_value=100, max_value=2000, value=350)
 childcare_input = st.sidebar.number_input("Child Care ($/mo)", min_value=0, max_value=3000, value=800)
 transport_input = st.sidebar.number_input("Transportation ($/mo)", min_value=50, max_value=1500, value=400)
-health_input = st.sidebar.number_input("Health Care ($/mo)", min_value=50, max_value=1500, value=150)
+health_input = st.sidebar.number_input("Health Care ($/mo)", min_value=50, max_value=1500, value=160)
 other_input = st.sidebar.number_input("Other Necessities ($/mo)", min_value=50, max_value=1500, value=300)
 civic_input = st.sidebar.number_input("Civic Engagement ($/mo)", min_value=0, max_value=1000, value=170)
 internet_input = st.sidebar.number_input("Internet ($/mo)", min_value=0, max_value=500, value=90)
